@@ -37,6 +37,9 @@ The software included in this product (contains/is based on/uses) copyrighted so
 #ifdef _WIN32
 #include <io.h>
 #endif
+#ifdef _WIN32
+#include <windows.h>
+#endif
 #include <iostream>
 #include <sstream>
 #include <fstream>
@@ -174,8 +177,17 @@ int main(int argc, char** argv)
         }
     }
 
-    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-STEAMINIT ---" << std::endl;
 
+#ifdef _WIN32
+    HWND test = FindWindowW(0, L"Counter-Strike: Global Offensive");
+    if(test != NULL)
+    {
+        Error("Warning", "CS:GO is currently running, please close the game first.\n");
+        return 1;
+    }
+#endif
+
+    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-STEAMINIT ---" << std::endl;
 
     if (SteamAPI_RestartAppIfNecessary(k_uAppIdInvalid))
         return 1;
