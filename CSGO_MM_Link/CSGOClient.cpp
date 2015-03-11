@@ -15,7 +15,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
-
+#include "CSGO_MM_Link.h"
 #include "CSGOClient.h"
 #include "BoilerException.h"
 
@@ -125,7 +125,7 @@ void CSGOClient::WaitForGcConnect()
         return;
     std::unique_lock<std::mutex> lock(m_connectedMutex);
     // if this takes longer than 10 seconds we are already connected to the gc
-    m_connectedCV.wait_for(lock, std::chrono::seconds(10));
+    m_connectedCV.wait_for(lock, std::chrono::milliseconds(CSGO_MM_LINK_STEAM_GC_CONNECT_MAX));
     m_connectedToGc = true;
 }
 
