@@ -24,5 +24,7 @@
 #endif
 
 
+struct CSGO_MM_LinkExceptionTimeout { };
+
 
 #endif // CSGO_MM_Link_h__

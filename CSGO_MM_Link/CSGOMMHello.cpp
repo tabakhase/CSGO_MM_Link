@@ -38,6 +38,6 @@ void CSGOMMHello::RefreshWait()
 
     m_updateCv.wait_for(lock, std::chrono::milliseconds(CSGO_MM_LINK_STEAM_CMSG_TIMEOUT));
     if(!m_updateComplete)
-        throw BoilerException("Timeouted on reciving CMsgGCCStrike15_v2_MatchmakingGC2ClientHello");
+        throw CSGO_MM_LinkExceptionTimeout();
 }
 

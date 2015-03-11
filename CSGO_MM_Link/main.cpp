@@ -100,6 +100,9 @@ struct stop_now_t { };
 
 int main(int argc, char** argv)
 {
+    CSGOMMLinkObject linkObj;
+    int res = 0;
+
     bool paramVerbose = false;
 
     bool paramKeepOpen = false;
@@ -246,29 +249,52 @@ int main(int argc, char** argv)
     });
     if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-StartCallbackThread ---" << std::endl;
 
-    int res = 0;
 
-    CSGOMMLinkObject linkObj;
-    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-TRY ---" << std::endl;
+
+    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-TRY-GcConnect ---" << std::endl;
+    bool resGc = false;
     try
     {
-
         // make sure we are connected to the gc
         if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- waitFor GcConnect ---" << std::endl;
         CSGOClient::GetInstance()->WaitForGcConnect();
         if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- got GcConnect ---" << std::endl;
+        resGc = true;
 
         linkObj.account_id = SteamUser()->GetSteamID().GetAccountID();
         linkObj.steam_id = SteamUser()->GetSteamID().ConvertToUint64();
         linkObj.playername = SteamFriends()->GetPersonaName();
+    }
+    catch (BoilerException& e)
+    {
+        Error("Fatal error", e.what());
+        resGc = false;
+    }
+    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-TRY-GcConnect ---" << std::endl;
+
+    if(!resGc)
+    {
+        Error("Fatal error", "Could not complete GcConnect\n");
+        return 1;
+    }
 
 
+    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-TRY-Hello ---" << std::endl;
+    bool resHello = false;
+    try
+    {
         // refresh hello data
         CSGOMMHello mmhello;
         if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- update MMHello ---" << std::endl;
         mmhello.RefreshWait();
         if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- got MMHello ---" << std::endl;
 
+        resHello = true;
+
+        if(paramRawHello){
+            std::cout << mmhello.exposedProt.SerializeAsString();
+            throw stop_now_t();
+        }
 
         std::vector<std::string> ranks = {
             "-unranked-",
@@ -309,32 +335,41 @@ int main(int argc, char** argv)
         if(mmhello.exposedProt.commendation().has_cmd_leader())
             linkObj.cmd_leader = mmhello.exposedProt.commendation().cmd_leader();
 
+    }
+    catch (stop_now_t) {
+        return 0;
+    }
+    catch (CSGO_MM_LinkExceptionTimeout)
+    {
+        Error("Warning", "Timeout on receiving CMsgGCCStrike15_v2_MatchmakingGC2ClientHello\n");
+        resHello = false;
+    }
+    catch (BoilerException& e)
+    {
+        Error("Fatal error", e.what());
+        resHello = false;
+    }
+    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-TRY-MatchList ---" << std::endl;
 
-        if(paramRawHello){
-            std::cout << mmhello.exposedProt.SerializeAsString();
-            throw stop_now_t();
-        }
 
 
 
-
+    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-TRY-MatchList ---" << std::endl;
+    bool resList = false;
+    try
+    {
         // refresh match list
         CSGOMatchList matchlist;
         if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- update MatchList ---" << std::endl;
         matchlist.RefreshWait();
         if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- got MatchList ---" << std::endl;
 
+        resList = true;
 
         if(paramRawMatchList){
             std::cout << matchlist.exposedProt.SerializeAsString();
             throw stop_now_t();
         }
-
-
-
-
-
-
 
         if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-MATCHLIST ---" << std::endl;
 
@@ -404,22 +439,26 @@ int main(int argc, char** argv)
         }
         if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-MATCHLIST ---" << std::endl;
 
-
-        res = 0;
     }
-    catch (stop_now_t& stop) {
-        res = 0;
+    catch (stop_now_t) {
+        return 0;
+    }
+    catch (CSGO_MM_LinkExceptionTimeout)
+    {
+        Error("Warning", "Timeout on receiving CMsgGCCStrike15_v2_MatchList\n");
+        resList = false;
     }
     catch (BoilerException& e)
     {
         Error("Fatal error", e.what());
-        res = 1;
+        resList = false;
     }
     if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-TRY ---" << std::endl;
 
 
 
-    if(paramPrintScores)
+
+    if(paramPrintScores && resList)
     {
         for (auto &match : linkObj.matches)
         {
@@ -438,7 +477,7 @@ int main(int argc, char** argv)
         }
     }
 
-    if(paramPrintMatches)
+    if(paramPrintMatches && resList)
     {
         std::cout << std::endl;
         std::cout << "=| "
@@ -467,8 +506,14 @@ int main(int argc, char** argv)
             std::cout << std::endl;
         }
     }
+    else if(paramPrintMatches)
+    {
+        Error("\nError", "Missing data, could not print -matches\n");
+        res = 1;
+    }
 
-    if(paramPrintPerf)
+
+    if(paramPrintPerf && resList)
     {
         std::cout << std::endl;
         std::cout << "=| "
@@ -513,8 +558,14 @@ int main(int argc, char** argv)
             }
         }
     }
+    else if(paramPrintPerf)
+    {
+        Error("\nError", "Missing data, could not print -perf\n");
+        res = 1;
+    }
 
-    if(paramPrintSelf)
+
+    if(paramPrintSelf && resHello)
     {
         std::cout << std::endl;
 
@@ -536,9 +587,14 @@ int main(int argc, char** argv)
             << "       ||"
         << std::endl;
     }
+    else if(paramPrintSelf)
+    {
+        Error("\nError", "Missing data, could not print -self\n");
+        res = 1;
+    }
 
 
-    if(paramPrintLaststatus)
+    if(paramPrintLaststatus && resList)
     {
         std::cout << std::endl;
         std::cout << std::endl;
@@ -578,6 +634,11 @@ int main(int argc, char** argv)
             std::cout << std::endl;
 
         }
+    }
+    else if(paramPrintLaststatus)
+    {
+        Error("\nError", "Missing data, could not print -status\n");
+        res = 1;
     }
 
     if(paramKeepOpen)
