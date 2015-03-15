@@ -284,183 +284,196 @@ int main(int argc, char** argv)
     }
 
 
-    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-TRY-Hello ---" << std::endl;
+    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-Thread-Hello ---" << std::endl;
     bool resHello = false;
-    try
+    auto hellothread = std::thread([&linkObj, paramVerbose, &resHello, paramRawHello]()
     {
-        // refresh hello data
-        CSGOMMHello mmhello;
-        if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- update MMHello ---" << std::endl;
-        mmhello.RefreshWait();
-        if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- got MMHello ---" << std::endl;
-
-        resHello = true;
-
-        if(paramRawHello){
-            std::cout << mmhello.exposedProt.SerializeAsString();
-            throw stop_now_t();
-        }
-
-        std::vector<std::string> ranks = {
-            "-unranked-",
-            "Siver 1",
-            "Siver 2",
-            "Siver 3",
-            "Siver 4",
-            "Siver Elite",
-            "Siver Elite Master",
-            "Gold Nova 1",
-            "Gold Nova 2",
-            "Gold Nova 3",
-            "Gold Nova 4",
-            "Master Guardian 1",
-            "Master Guardian 2",
-            "Master Guardian Elite",
-            "Distinguished Master Guardian",
-            "Legendary Eagle",
-            "Legendary Eagle Master",
-            "SMFC",
-            "Global Elite",
-        };
-
-        if(mmhello.exposedProt.ranking().has_rank_id())
+        try
         {
-            linkObj.rank_id = mmhello.exposedProt.ranking().rank_id();
-            linkObj.rank_str = ranks[mmhello.exposedProt.ranking().rank_id()];
-        }
-        if(mmhello.exposedProt.ranking().has_wins())
-            linkObj.rank_wins = mmhello.exposedProt.ranking().wins();
-        if(mmhello.exposedProt.ranking().has_rank_change())
-            linkObj.rank_change = mmhello.exposedProt.ranking().rank_change();
+            std::this_thread::sleep_for(std::chrono::milliseconds(CSGO_MM_LINK_STEAM_HELLO_DELAY)); // this is minimal, and should solve some issues...
+            // refresh hello data
+            CSGOMMHello mmhello;
+            if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- update MMHello ---" << std::endl;
+            mmhello.RefreshWait();
+            if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- got MMHello ---" << std::endl;
 
-        if(mmhello.exposedProt.commendation().has_cmd_friendly())
-            linkObj.cmd_friendly = mmhello.exposedProt.commendation().cmd_friendly();
-        if(mmhello.exposedProt.commendation().has_cmd_teaching())
-            linkObj.cmd_teaching = mmhello.exposedProt.commendation().cmd_teaching();
-        if(mmhello.exposedProt.commendation().has_cmd_leader())
-            linkObj.cmd_leader = mmhello.exposedProt.commendation().cmd_leader();
+            resHello = true;
 
-    }
-    catch (stop_now_t) {
-        return 0;
-    }
-    catch (CSGO_MM_LinkExceptionTimeout)
-    {
-        Error("Warning", "Timeout on receiving CMsgGCCStrike15_v2_MatchmakingGC2ClientHello\n");
-        resHello = false;
-    }
-    catch (BoilerException& e)
-    {
-        Error("Fatal error", e.what());
-        resHello = false;
-    }
-    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-TRY-MatchList ---" << std::endl;
-
-
-
-
-    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-TRY-MatchList ---" << std::endl;
-    bool resList = false;
-    try
-    {
-        // refresh match list
-        CSGOMatchList matchlist;
-        if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- update MatchList ---" << std::endl;
-        matchlist.RefreshWait();
-        if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- got MatchList ---" << std::endl;
-
-        resList = true;
-
-        if(paramRawMatchList){
-            std::cout << matchlist.exposedProt.SerializeAsString();
-            throw stop_now_t();
-        }
-
-        if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-MATCHLIST ---" << std::endl;
-
-
-//      for (CDataGCCStrike15_v2_MatchInfo &match : matchlist.Matches())
-        for (auto &match : matchlist.Matches())
-        {
-            if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-MATCH ---" << std::endl;
-
-            CDataGCCStrike15_v2_MatchInfo matchinfo = match;
-            CMsgGCCStrike15_v2_MatchmakingServerRoundStats roundstats = matchinfo.roundstats();
-
-
-            CSGOMatchData parsedMatch;
-
-            parsedMatch.matchid = matchinfo.matchid();
-
-            parsedMatch.demolink = roundstats.map();
-
-            parsedMatch.matchtime = matchinfo.matchtime();
-
-            parsedMatch.spectators = roundstats.spectators_count();
-
-            char buffer_local [80];
-            time_t rawtime_local = matchinfo.matchtime();
-            struct tm * timeinfo_local;
-            timeinfo_local = localtime (&rawtime_local);
-            strftime (buffer_local,80,"%Y-%m-%d %H:%M:%S",timeinfo_local);
-            parsedMatch.matchtime_str = buffer_local;
-
-            char buffer_global [80];
-            time_t rawtime_global = matchinfo.matchtime();
-            struct tm * timeinfo_global;
-            timeinfo_global = gmtime (&rawtime_global);
-            strftime (buffer_global,80,"%Y-%m-%d %H:%M:%S",timeinfo_global);
-
-
-            parsedMatch.result = matchlist.getMatchResultNum(matchinfo);
-            parsedMatch.result_str = matchlist.getMatchResult(matchinfo);
-            parsedMatch.score_ally = roundstats.team_scores(matchlist.getOwnIndex(matchinfo) >= 5 ? 1 : 0);
-            parsedMatch.score_enemy = roundstats.team_scores(matchlist.getOwnIndex(matchinfo) >= 5 ? 0 : 1);
-
-
-
-            for (auto &account_id : match.roundstats().reservation().account_ids())
-            {
-                if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-MATCH-PLAYER ---" << std::endl;
-
-                CSGOMatchPlayerScore player;
-                player.index = matchlist.getPlayerIndex(account_id, matchinfo);
-                player.account_id = account_id;
-                player.steam_id = CSteamID(player.account_id, k_EUniversePublic, k_EAccountTypeIndividual).ConvertToUint64();
-                player.kills = roundstats.kills(player.index);
-                player.assists = roundstats.assists(player.index);
-                player.deaths = roundstats.deaths(player.index);
-                player.mvps = roundstats.mvps(player.index);
-                player.score = roundstats.scores(player.index);
-
-                parsedMatch.scoreboard.push_back(player);
-
-                if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-MATCH-PLAYER ---" << std::endl;
+            if(paramRawHello){
+                std::cout << mmhello.exposedProt.SerializeAsString();
+                throw stop_now_t();
             }
 
-            linkObj.matches.push_back(parsedMatch);
+            std::vector<std::string> ranks = {
+                "-unranked-",
+                "Siver 1",
+                "Siver 2",
+                "Siver 3",
+                "Siver 4",
+                "Siver Elite",
+                "Siver Elite Master",
+                "Gold Nova 1",
+                "Gold Nova 2",
+                "Gold Nova 3",
+                "Gold Nova 4",
+                "Master Guardian 1",
+                "Master Guardian 2",
+                "Master Guardian Elite",
+                "Distinguished Master Guardian",
+                "Legendary Eagle",
+                "Legendary Eagle Master",
+                "SMFC",
+                "Global Elite",
+            };
 
-            if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-MATCH ---" << std::endl;
+            if(mmhello.exposedProt.ranking().has_rank_id())
+            {
+                linkObj.rank_id = mmhello.exposedProt.ranking().rank_id();
+                linkObj.rank_str = ranks[mmhello.exposedProt.ranking().rank_id()];
+            }
+            if(mmhello.exposedProt.ranking().has_wins())
+                linkObj.rank_wins = mmhello.exposedProt.ranking().wins();
+            if(mmhello.exposedProt.ranking().has_rank_change())
+                linkObj.rank_change = mmhello.exposedProt.ranking().rank_change();
+
+            if(mmhello.exposedProt.commendation().has_cmd_friendly())
+                linkObj.cmd_friendly = mmhello.exposedProt.commendation().cmd_friendly();
+            if(mmhello.exposedProt.commendation().has_cmd_teaching())
+                linkObj.cmd_teaching = mmhello.exposedProt.commendation().cmd_teaching();
+            if(mmhello.exposedProt.commendation().has_cmd_leader())
+                linkObj.cmd_leader = mmhello.exposedProt.commendation().cmd_leader();
+
         }
-        if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-MATCHLIST ---" << std::endl;
-
-    }
-    catch (stop_now_t) {
+        catch (stop_now_t) {
+            return 0;
+        }
+        catch (CSGO_MM_LinkExceptionTimeout)
+        {
+            Error("Warning", "Timeout on receiving CMsgGCCStrike15_v2_MatchmakingGC2ClientHello\n");
+            resHello = false;
+        }
+        catch (BoilerException& e)
+        {
+            Error("Fatal error", e.what());
+            resHello = false;
+        }
+        if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-Thread-Hello ---" << std::endl;
         return 0;
-    }
-    catch (CSGO_MM_LinkExceptionTimeout)
-    {
-        Error("Warning", "Timeout on receiving CMsgGCCStrike15_v2_MatchList\n");
-        resList = false;
-    }
-    catch (BoilerException& e)
-    {
-        Error("Fatal error", e.what());
-        resList = false;
-    }
-    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-TRY ---" << std::endl;
+    });
 
 
+
+
+    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-Thread-MatchList ---" << std::endl;
+    bool resList = false;
+    auto matchthread = std::thread([&linkObj, paramVerbose, &resList, paramRawMatchList]()
+    {
+        try
+        {
+            std::this_thread::sleep_for(std::chrono::milliseconds(CSGO_MM_LINK_STEAM_MATCHLIST_DELAY)); // this is minimal, and should solve some issues...
+            // refresh match list
+            CSGOMatchList matchlist;
+            if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- update MatchList ---" << std::endl;
+            matchlist.RefreshWait();
+            if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- got MatchList ---" << std::endl;
+
+            resList = true;
+
+            if(paramRawMatchList){
+                std::cout << matchlist.exposedProt.SerializeAsString();
+                throw stop_now_t();
+            }
+
+            if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-MATCHLIST ---" << std::endl;
+
+
+    //      for (CDataGCCStrike15_v2_MatchInfo &match : matchlist.Matches())
+            for (auto &match : matchlist.Matches())
+            {
+                //if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-MATCH ---" << std::endl;
+
+                CDataGCCStrike15_v2_MatchInfo matchinfo = match;
+                CMsgGCCStrike15_v2_MatchmakingServerRoundStats roundstats = matchinfo.roundstats();
+
+
+                CSGOMatchData parsedMatch;
+
+                parsedMatch.matchid = matchinfo.matchid();
+
+                parsedMatch.demolink = roundstats.map();
+
+                parsedMatch.matchtime = matchinfo.matchtime();
+
+                parsedMatch.spectators = roundstats.spectators_count();
+
+                char buffer_local [80];
+                time_t rawtime_local = matchinfo.matchtime();
+                struct tm * timeinfo_local;
+                timeinfo_local = localtime (&rawtime_local);
+                strftime (buffer_local,80,"%Y-%m-%d %H:%M:%S",timeinfo_local);
+                parsedMatch.matchtime_str = buffer_local;
+
+                char buffer_global [80];
+                time_t rawtime_global = matchinfo.matchtime();
+                struct tm * timeinfo_global;
+                timeinfo_global = gmtime (&rawtime_global);
+                strftime (buffer_global,80,"%Y-%m-%d %H:%M:%S",timeinfo_global);
+
+
+                parsedMatch.result = matchlist.getMatchResultNum(matchinfo);
+                parsedMatch.result_str = matchlist.getMatchResult(matchinfo);
+                parsedMatch.score_ally = roundstats.team_scores(matchlist.getOwnIndex(matchinfo) >= 5 ? 1 : 0);
+                parsedMatch.score_enemy = roundstats.team_scores(matchlist.getOwnIndex(matchinfo) >= 5 ? 0 : 1);
+
+
+
+                for (auto &account_id : match.roundstats().reservation().account_ids())
+                {
+                    //if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- START-MATCH-PLAYER ---" << std::endl;
+
+                    CSGOMatchPlayerScore player;
+                    player.index = matchlist.getPlayerIndex(account_id, matchinfo);
+                    player.account_id = account_id;
+                    player.steam_id = CSteamID(player.account_id, k_EUniversePublic, k_EAccountTypeIndividual).ConvertToUint64();
+                    player.kills = roundstats.kills(player.index);
+                    player.assists = roundstats.assists(player.index);
+                    player.deaths = roundstats.deaths(player.index);
+                    player.mvps = roundstats.mvps(player.index);
+                    player.score = roundstats.scores(player.index);
+
+                    parsedMatch.scoreboard.push_back(player);
+
+                    //if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-MATCH-PLAYER ---" << std::endl;
+                }
+
+                linkObj.matches.push_back(parsedMatch);
+
+                //if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-MATCH ---" << std::endl;
+            }
+            if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-MATCHLIST ---" << std::endl;
+
+        }
+        catch (stop_now_t) {
+            return 0;
+        }
+        catch (CSGO_MM_LinkExceptionTimeout)
+        {
+            Error("Warning", "Timeout on receiving CMsgGCCStrike15_v2_MatchList\n");
+            resList = false;
+        }
+        catch (BoilerException& e)
+        {
+            Error("Fatal error", e.what());
+            resList = false;
+        }
+        if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- END-Thread-MatchList ---" << std::endl;
+        return 0;
+    });
+
+    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- Waiting for ThreadResults... ---" << std::endl;
+    matchthread.join();
+    hellothread.join();
+    if(paramVerbose) std::clog << "LINK-VERBOSE:" << "--- Waiting for ThreadResults - COMPLETED ---" << std::endl;
 
 
     if(paramPrintScores && resList)
