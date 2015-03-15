@@ -513,7 +513,7 @@ int main(int argc, char** argv)
     }
     else if(paramPrintMatches)
     {
-        Error("\nError", "Missing data, could not print -matches\n");
+        Error("\nError", "Steam did not respond in time, could not print -matches\n");
         res = 1;
     }
 
@@ -565,7 +565,7 @@ int main(int argc, char** argv)
     }
     else if(paramPrintPerf)
     {
-        Error("\nError", "Missing data, could not print -perf\n");
+        Error("\nError", "Steam did not respond in time, could not print -perf\n");
         res = 1;
     }
 
@@ -594,7 +594,7 @@ int main(int argc, char** argv)
     }
     else if(paramPrintSelf)
     {
-        Error("\nError", "Missing data, could not print -self\n");
+        Error("\nError", "Steam did not respond in time, could not print -self\n");
         res = 1;
     }
 
@@ -642,7 +642,7 @@ int main(int argc, char** argv)
     }
     else if(paramPrintLaststatus)
     {
-        Error("\nError", "Missing data, could not print -status\n");
+        Error("\nError", "Steam did not respond in time, could not print -status\n");
         res = 1;
     }
 
