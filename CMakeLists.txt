@@ -229,8 +229,9 @@ endif()
 #add_executable(CSGO_MM_Link WIN32
 add_executable(CSGO_MM_Link
     ${CSGOMMLINK_EXEEXTRAS}
-    CSGO_MM_Link/CSGO_MM_Link.h
     CSGO_MM_Link/main.cpp
+    CSGO_MM_Link/CSGO_MM_Link.h
+    CSGO_MM_Link/CSGO_MM_Link.cpp
     CSGO_MM_Link/CSGOClient.h
     CSGO_MM_Link/CSGOClient.cpp
     CSGO_MM_Link/GCMsgHandler.h
