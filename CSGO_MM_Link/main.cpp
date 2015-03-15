@@ -180,6 +180,11 @@ int main(int argc, char** argv)
         }
     }
 
+    // usage error? demo is an option paramater, lets fix that for you...
+    if(paramWithDemoLink && !(paramPrintMatches || paramPrintPerf)){
+        paramPrintMatches = true;
+    }
+
 
 #ifdef _WIN32
     HWND test = FindWindowW(0, L"Counter-Strike: Global Offensive");
