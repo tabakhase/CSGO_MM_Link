@@ -8,9 +8,9 @@ CSGO_MM_Link (for Windows & Linux64(32))
 #** Use at OWN risk ** #
 
 
-Downloads (precompiled windows)
+Downloads (precompiled)
 =========
-* **soon**
+* alpha [v0.9.2 Windows](https://github.com/tabakhase/CSGO_MM_Link/releases/tag/0.9.2)
 
 
 Usage

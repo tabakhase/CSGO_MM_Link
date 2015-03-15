@@ -25,6 +25,9 @@ The software included in this product (contains/is based on/uses) copyrighted so
 The software included in this product (contains/is based on/uses) copyrighted software.
     Steamworks SDK  * by Valve Corporation
 
+The software included in this product (contains/is based on/uses)
+    CSGO Protbufs   * by steamdb.info
+
 */
 #include "CSGO_MM_Link.h"
 
